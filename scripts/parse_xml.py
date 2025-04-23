@@ -1,31 +1,23 @@
 from lxml import etree
+import sqlite3
 
-def parse_xml(file_path):
-    print(f"Parsing {file_path}...")
+def clean_name(name):
+    """Basic cleaning: lowercase, remove extra spaces, handle nulls."""
+    if not name:
+        return ""
+    return " ".join(name.lower().strip().split())
+
+def parse_and_insert(file_path, db_path):
+    print(f"Parsing {file_path} and inserting into {db_path}...")
     record_count = 0
-    test_abns = {
-        "88712649015", 
-        "49991006857",
-        "30613501612",
-        "27776681795",
-        "27776681795",
-        "85832766990",
-        "86308026589",
-        "12850816238",
-        "38875128921",
-        "11092508586",
-        "45891839079",
-        "37601599422",
-        "56638257003",
-        "79002637069",
-        "45877249165",
-        "80776127243",
-        "13993250709",
-        "75812792400",
-        "66264753659",
-    }
+    batch_size = 10000
+    batch = {"businesses": [], "addresses": [], "alternate_names": []}
 
-    # Iterative parsing for <ABR> elements
+    # Connect to database
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Iterative parsing
     context = etree.iterparse(file_path, events=("end",), tag="ABR")
     for event, elem in context:
         record_count += 1
@@ -38,7 +30,11 @@ def parse_xml(file_path):
         status = abn_elem.get("status") if abn_elem is not None else ""
         status_date = abn_elem.get("ABNStatusFromDate") if abn_elem is not None else ""
 
-        # Extract main name (NonIndividualName or IndividualName for IND)
+        # Skip if ABN is missing
+        if not abn:
+            continue
+
+        # Extract main name
         main_name = ""
         if elem.find(".//MainEntity/NonIndividualName/NonIndividualNameText") is not None:
             main_name = elem.find(".//MainEntity/NonIndividualName/NonIndividualNameText").text or ""
@@ -46,6 +42,7 @@ def parse_xml(file_path):
             given_name = elem.find(".//LegalEntity/IndividualName/GivenName").text or ""
             family_name = elem.find(".//LegalEntity/IndividualName/FamilyName").text or ""
             main_name = f"{given_name} {family_name}".strip()
+        main_name = clean_name(main_name)
 
         # Extract address
         state_elem = elem.find(".//BusinessAddress/AddressDetails/State")
@@ -53,34 +50,65 @@ def parse_xml(file_path):
         postcode_elem = elem.find(".//BusinessAddress/AddressDetails/Postcode")
         postcode = postcode_elem.text if postcode_elem is not None else ""
 
-        # Extract trading/business names (OtherEntity with type=TRD or BN)
+        # Extract trading/business names
         trading_names = []
         for other_elem in elem.findall(".//OtherEntity/NonIndividualName"):
             name_type = other_elem.get("type")
-            if name_type in ("TRD", "BN"):
+            if name_type in ("TRD", "BN", "OTN"):
                 name_text = other_elem.find("NonIndividualNameText").text
                 if name_text:
-                    trading_names.append({"type": name_type, "name": name_text})
+                    trading_names.append((name_type, clean_name(name_text)))
 
-        # Print record if it’s a test ABN or every 100,000th record
-        if abn in test_abns or record_count % 100000 == 0:
-            print({
-                "abn": abn,
-                "status": status,
-                "status_date": status_date,
-                "main_name": main_name,
-                "state": state,
-                "postcode": postcode,
-                "trading_names": trading_names
-            })
+        # Add to batch
+        batch["businesses"].append((abn, main_name, status, status_date))
+        if state or postcode:
+            batch["addresses"].append((abn, state, postcode))
+        for name_type, name in trading_names:
+            batch["alternate_names"].append((abn, name_type, name))
+
+        # Insert batch every batch_size records
+        if record_count % batch_size == 0:
+            cursor.executemany(
+                "INSERT OR IGNORE INTO businesses (abn, main_name, status, status_date) VALUES (?, ?, ?, ?)",
+                batch["businesses"]
+            )
+            cursor.executemany(
+                "INSERT OR IGNORE INTO addresses (abn, state, postcode) VALUES (?, ?, ?)",
+                batch["addresses"]
+            )
+            cursor.executemany(
+                "INSERT OR IGNORE INTO alternate_names (abn, name_type, name) VALUES (?, ?, ?)",
+                batch["alternate_names"]
+            )
+            conn.commit()
+            batch = {"businesses": [], "addresses": [], "alternate_names": []}
+            print(f"Inserted batch at {record_count} records")
 
         # Clear element to free memory
         elem.clear()
         while elem.getprevious() is not None:
             del elem.getparent()[0]
 
+    # Insert remaining records
+    if batch["businesses"]:
+        cursor.executemany(
+            "INSERT OR IGNORE INTO businesses (abn, main_name, status, status_date) VALUES (?, ?, ?, ?)",
+            batch["businesses"]
+        )
+        cursor.executemany(
+            "INSERT OR IGNORE INTO addresses (abn, state, postcode) VALUES (?, ?, ?)",
+            batch["addresses"]
+        )
+        cursor.executemany(
+            "INSERT OR IGNORE INTO alternate_names (abn, name_type, name) VALUES (?, ?, ?)",
+            batch["alternate_names"]
+        )
+        conn.commit()
+
     print(f"Total records processed: {record_count}")
+    conn.close()
 
 if __name__ == "__main__":
-    file_path = r"D:\FIRMABLE\data\xml\20250409_Public01.xml" 
-    parse_xml(file_path)
+    file_path = r"D:\FIRMABLE\data\xml\20250409_Public01.xml"
+    db_path = r"D:\FIRMABLE\db\abn.db"
+    parse_and_insert(file_path, db_path)

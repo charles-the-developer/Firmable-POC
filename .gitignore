@@ -1,8 +1,10 @@
 # Ignore virtual environment
 venv/
 
-# Ignore top-level data folder
+# Ignore top-level data, db & deleted db folders
 /data/
+/db/
+/del-db/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
