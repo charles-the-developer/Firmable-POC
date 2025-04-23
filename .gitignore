@@ -1,0 +1,52 @@
+# Ignore virtual environment
+venv/
+
+# Ignore top-level data folder
+/data/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+*.whl
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+coverage.xml
+.cache
+.pytest_cache/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# macOS and Linux system files
+.DS_Store
+.Trashes
+Thumbs.db
+
+# dotenv environment files
+.env
+.env.*
+
+# MyPy and Pylint
+.mypy_cache/
+.pylint.d/
