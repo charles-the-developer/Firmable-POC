@@ -12,19 +12,34 @@ def verify_database(db_path):
     cursor.execute("SELECT COUNT(*) FROM alternate_names")
     print(f"Alternate names count: {cursor.fetchone()[0]}")
 
-    # Check test ABN (from readme)
-    test_abn = "12850816238"
-    cursor.execute("SELECT * FROM businesses WHERE abn = ?", (test_abn,))
-    print(f"Test ABN {test_abn}: {cursor.fetchall()}")
-    cursor.execute("SELECT * FROM addresses WHERE abn = ?", (test_abn,))
-    print(f"Address for {test_abn}: {cursor.fetchall()}")
-    cursor.execute("SELECT * FROM alternate_names WHERE abn = ?", (test_abn,))
-    print(f"Alternate names for {test_abn}: {cursor.fetchall()}")
+    # Test ABNs from readme
+    test_abns = [
+        "88712649015", "49991006857", "30613501612", "27776681795",
+        "85832766990", "86308026589", "12850816238", "38875128921",
+        "11092508586", "45891839079", "37601599422", "56638257003",
+        "79002637069", "45877249165", "80776127243", "13993250709",
+        "75812792400", "66264753659"
+    ]
+
+    print("\nVerifying test ABNs:")
+    for abn in test_abns:
+        cursor.execute("SELECT abn, main_name, status FROM businesses WHERE abn = ?", (abn,))
+        business = cursor.fetchone()
+        cursor.execute("SELECT state, postcode FROM addresses WHERE abn = ?", (abn,))
+        address = cursor.fetchone()
+        cursor.execute("SELECT name_type, name FROM alternate_names WHERE abn = ?", (abn,))
+        alt_names = cursor.fetchall()
+
+        print(f"\nABN: {abn}")
+        print(f"Business: {business if business else 'Not found'}")
+        print(f"Address: {address if address else 'Not found'}")
+        print(f"Alternate names: {alt_names if alt_names else 'None'}")
 
     # Sample search query
     search_name = "%forest coach%"
     cursor.execute("SELECT abn, main_name FROM businesses WHERE main_name LIKE ?", (search_name,))
-    print(f"Sample search for 'forest coach': {cursor.fetchall()[:5]}")
+    results = cursor.fetchall()[:5]
+    print(f"\nSample search for 'forest coach': {results}")
 
     conn.close()
 

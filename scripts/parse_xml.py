@@ -1,5 +1,7 @@
 from lxml import etree
 import sqlite3
+import glob
+import os
 
 def clean_name(name):
     """Basic cleaning: lowercase, remove extra spaces, handle nulls."""
@@ -7,22 +9,18 @@ def clean_name(name):
         return ""
     return " ".join(name.lower().strip().split())
 
-def parse_and_insert(file_path, db_path):
-    print(f"Parsing {file_path} and inserting into {db_path}...")
+def parse_and_insert(file_path, db_path, cursor, conn):
+    print(f"Parsing {file_path}...")
     record_count = 0
     batch_size = 10000
     batch = {"businesses": [], "addresses": [], "alternate_names": []}
-
-    # Connect to database
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
 
     # Iterative parsing
     context = etree.iterparse(file_path, events=("end",), tag="ABR")
     for event, elem in context:
         record_count += 1
         if record_count % 10000 == 0:
-            print(f"Processed {record_count} records")
+            print(f"Processed {record_count} records in {os.path.basename(file_path)}")
 
         # Extract ABN and status
         abn_elem = elem.find(".//ABN")
@@ -82,7 +80,7 @@ def parse_and_insert(file_path, db_path):
             )
             conn.commit()
             batch = {"businesses": [], "addresses": [], "alternate_names": []}
-            print(f"Inserted batch at {record_count} records")
+            print(f"Inserted batch at {record_count} records in {os.path.basename(file_path)}")
 
         # Clear element to free memory
         elem.clear()
@@ -105,10 +103,24 @@ def parse_and_insert(file_path, db_path):
         )
         conn.commit()
 
-    print(f"Total records processed: {record_count}")
+    print(f"Completed {file_path}: {record_count} records processed")
+
+def process_all_files(xml_dir, db_path):
+    print(f"Processing all XML files in {xml_dir}...")
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    # Get all XML files
+    xml_files = glob.glob(os.path.join(xml_dir, "20250409_Public*.xml"))
+    xml_files.sort()  # Ensure files are processed in order (01 to 20)
+
+    for file_path in xml_files:
+        parse_and_insert(file_path, db_path, cursor, conn)
+
     conn.close()
+    print("All files processed.")
 
 if __name__ == "__main__":
-    file_path = r"D:\FIRMABLE\data\xml\20250409_Public01.xml"
+    xml_dir = r"D:\FIRMABLE\data\xml"
     db_path = r"D:\FIRMABLE\db\abn.db"
-    parse_and_insert(file_path, db_path)
+    process_all_files(xml_dir, db_path)
