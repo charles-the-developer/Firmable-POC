@@ -1,64 +1,113 @@
 import sqlite3
 
 def setup_database(db_path):
+    print(f"Creating database at {db_path}...")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
 
-    # Create tables
+    # ABR (root record)
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS businesses (
+        CREATE TABLE IF NOT EXISTS abrs (
             abn TEXT PRIMARY KEY,
-            main_name TEXT,
-            status TEXT,
-            status_date TEXT
+            record_last_updated_date TEXT
         )
     """)
+
+    # ABN details
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS abns (
+            abn TEXT PRIMARY KEY,
+            status TEXT,
+            status_date TEXT,
+            FOREIGN KEY (abn) REFERENCES abrs(abn)
+        )
+    """)
+
+    # Entity type
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS entity_types (
+            abn TEXT PRIMARY KEY,
+            entity_type_ind TEXT,
+            entity_type_text TEXT,
+            FOREIGN KEY (abn) REFERENCES abrs(abn)
+        )
+    """)
+
+    # Main entity (non-individuals)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS main_entities (
+            abn TEXT,
+            name_type TEXT,
+            name TEXT,
+            FOREIGN KEY (abn) REFERENCES abrs(abn)
+        )
+    """)
+
+    # Legal entity (individuals)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS legal_entities (
+            abn TEXT,
+            name_type TEXT,
+            name_title TEXT,
+            given_name TEXT,
+            family_name TEXT,
+            FOREIGN KEY (abn) REFERENCES abrs(abn)
+        )
+    """)
+
+    # Business address
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS addresses (
             abn TEXT,
             state TEXT,
             postcode TEXT,
-            FOREIGN KEY (abn) REFERENCES businesses(abn)
+            FOREIGN KEY (abn) REFERENCES abrs(abn)
         )
     """)
+
+    # ASIC number
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS alternate_names (
+        CREATE TABLE IF NOT EXISTS asic_numbers (
+            abn TEXT,
+            asic_number TEXT,
+            asic_number_type TEXT,
+            FOREIGN KEY (abn) REFERENCES abrs(abn)
+        )
+    """)
+
+    # GST status
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS gst_statuses (
+            abn TEXT,
+            status TEXT,
+            status_date TEXT,
+            FOREIGN KEY (abn) REFERENCES abrs(abn)
+        )
+    """)
+
+    # DGR funds
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS dgrs (
+            abn TEXT,
+            status_date TEXT,
+            name_type TEXT,
+            name TEXT,
+            FOREIGN KEY (abn) REFERENCES abrs(abn)
+        )
+    """)
+
+    # Other entities (trading/business names)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS other_entities (
             abn TEXT,
             name_type TEXT,
             name TEXT,
-            FOREIGN KEY (abn) REFERENCES businesses(abn)
+            FOREIGN KEY (abn) REFERENCES abrs(abn)
         )
     """)
 
-    # Test insert
-    cursor.execute("""
-        INSERT INTO businesses (abn, main_name, status, status_date)
-        VALUES (?, ?, ?, ?)
-    """, ("11000037409", "FOREST COACH LINES PTY LTD", "ACT", "20000317"))
-    cursor.execute("""
-        INSERT INTO addresses (abn, state, postcode)
-        VALUES (?, ?, ?)
-    """, ("11000037409", "NSW", "2084"))
-    cursor.execute("""
-        INSERT INTO alternate_names (abn, name_type, name)
-        VALUES (?, ?, ?)
-    """, ("11000037409", "BN", "CDC NSW MID NORTH COAST"))
-    cursor.execute("""
-        INSERT INTO alternate_names (abn, name_type, name)
-        VALUES (?, ?, ?)
-    """, ("11000037409", "BN", "Woopi Connect"))
-
     conn.commit()
-    print("Database created and sample record inserted.")
-
-    # Verify
-    cursor.execute("SELECT * FROM businesses")
-    print("Businesses:", cursor.fetchall())
-    cursor.execute("SELECT * FROM addresses")
-    print("Addresses:", cursor.fetchall())
-    cursor.execute("SELECT * FROM alternate_names")
-    print("Alternate Names:", cursor.fetchall())
-
+    print("Database schema created.")
     conn.close()
 
 if __name__ == "__main__":
