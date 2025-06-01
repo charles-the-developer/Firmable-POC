@@ -1,103 +1,127 @@
-import Image from "next/image";
+'use client';
+import { useState, useEffect, FormEvent } from 'react';
+import axios from 'axios';
+import SearchBar from './components/SearchBar';
+import ResultsTable from './components/ResultsTable';
+import Pagination from './components/Pagination';
 
-export default function Home() {
+interface SearchResult {
+  abn: string;
+  name: string | null;
+  state: string | null;
+  postcode: string | null;
+}
+
+interface PaginationInfo {
+  page: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+}
+
+const Home: React.FC = () => {
+  const [query, setQuery] = useState<string>('');
+  const [state, setState] = useState<string>('');
+  const [entityType, setEntityType] = useState<string>('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    page: 1,
+    pageSize: 10,
+    totalCount: 0,
+    totalPages: 1,
+  });
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchResults = async (page: number = 1) => {
+    setLoading(true);
+    setError(null);
+    setResults([]); // Clear results on new search
+    try {
+      const response = await axios.get(`/api/search`, {
+        params: {
+          query,
+          state,
+          entityType,
+          page,
+          pageSize: pagination.pageSize,
+        },
+        timeout: 60000,
+      });
+      setResults(response.data.results);
+      setPagination({
+        ...pagination,
+        page,
+        totalCount: response.data.pagination.totalCount,
+        totalPages: response.data.pagination.totalPages,
+      });
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error || 'An unexpected error occurred. Please try again.';
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSearch = (e: FormEvent) => {
+    e.preventDefault();
+    if (!query.trim()) return;
+    fetchResults(1);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    fetchResults(newPage);
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <div className="min-h-screen bg-gray-50">
+      <header className="bg-blue-600 text-white p-4 shadow-md">
+        <h1 className="text-2xl font-bold">Australian Business Registry Search</h1>
+        <p className="text-sm">Search for businesses by ABN, ACN, or name</p>
+      </header>
+      <main className="container mx-auto p-6">
+        <SearchBar
+          query={query}
+          setQuery={setQuery}
+          state={state}
+          setState={setState}
+          entityType={entityType}
+          setEntityType={setEntityType}
+          onSearch={handleSearch}
+          loading={loading}
         />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+        {error && (
+          <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-lg shadow-sm" role="alert">
+            {error}
+          </div>
+        )}
+        {loading && (
+          <div className="flex justify-center my-4">
+            <svg className="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span className="ml-2 text-blue-600">Loading... (may take a few seconds)</span>
+          </div>
+        )}
+        {!loading && !error && results.length === 0 && (
+          <p className="text-gray-600 mt-4">
+            No results found. Try adjusting your search or filters. 😔
+          </p>
+        )}
+        {!loading && !error && results.length > 0 && (
+          <>
+            <ResultsTable results={results} />
+            <Pagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={handlePageChange}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
+          </>
+        )}
       </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
     </div>
   );
-}
+};
+
+export default Home;

@@ -6,6 +6,9 @@ venv/
 /db/
 /del-db/
 
+/frontend/node_modules
+/frontend/.next/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

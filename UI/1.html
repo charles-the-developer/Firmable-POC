@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Australian Business Registry Search</title>
+  <script src="https://cdn.jsdelivr.net/npm/react@18.2.0/umd/react.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/react-dom@18.2.0/umd/react-dom.production.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@babel/standalone@7.22.9/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const SearchBar = ({ searchTerm, setSearchTerm, handleSearch }) => (
+      <div className="flex items-center gap-4">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Search by ABN, ACN, or Business Name..."
+          className="flex-1 p-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <button
+          onClick={handleSearch}
+          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+        >
+          Search
+        </button>
+      </div>
+    );
+
+    const Filters = ({ filters, setFilters }) => (
+      <div className="flex gap-4">
+        <select
+          value={filters.entityType}
+          onChange={(e) => setFilters({ ...filters, entityType: e.target.value })}
+          className="p-2 rounded-lg border border-gray-300 focus:outline-none"
+        >
+          <option value="">All Entity Types</option>
+          <option value="company">Company</option>
+          <option value="partnership">Partnership</option>
+          <option value="sole-trader">Sole Trader</option>
+        </select>
+        <select
+          value={filters.state}
+          onChange={(e) => setFilters({ ...filters, state: e.target.value })}
+          className="p-2 rounded-lg border border-gray-300 focus:outline-none"
+        >
+          <option value="">All States</option>
+          <option value="NSW">NSW</option>
+          <option value="VIC">VIC</option>
+          <option value="QLD">QLD</option>
+          <option value="WA">WA</option>
+          <option value="SA">SA</option>
+          <option value="TAS">TAS</option>
+          <option value="ACT">ACT</option>
+          <option value="NT">NT</option>
+        </select>
+      </div>
+    );
+
+    const ResultCard = ({ result }) => (
+      <div className="p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition">
+        <h3 className="text-lg font-semibold text-gray-800">{result.businessName}</h3>
+        <p className="text-gray-600">ABN: {result.abn}</p>
+        <p className="text-gray-600">Entity Type: {result.entityType}</p>
+        <p className="text-gray-600">Location: {result.location}</p>
+        <p className="text-gray-600">Status: {result.status}</p>
+      </div>
+    );
+
+    const App = () => {
+      const [searchTerm, setSearchTerm] = React.useState('');
+      const [filters, setFilters] = React.useState({ entityType: '', state: '' });
+      const [results, setResults] = React.useState([]);
+      const [loading, setLoading] = React.useState(false);
+
+      const handleSearch = () => {
+        setLoading(true);
+        // Simulated API call
+        setTimeout(() => {
+          const mockResults = [
+            {
+              businessName: 'Sample Business Pty Ltd',
+              abn: '12 345 678 901',
+              entityType: 'Company',
+              location: 'Sydney, NSW',
+              status: 'Active',
+            },
+            {
+              businessName: 'Example Partnership',
+              abn: '98 765 432 109',
+              entityType: 'Partnership',
+              location: 'Melbourne, VIC',
+              status: 'Active',
+            },
+          ];
+          setResults(mockResults);
+          setLoading(false);
+        }, 1000);
+      };
+
+      return (
+        <div className="min-h-screen bg-gray-100 flex flex-col">
+          <header className="bg-blue-800 text-white p-6">
+            <h1 className="text-3xl font-bold">Australian Business Registry Search</h1>
+            <p className="mt-2">Search for businesses by ABN, ACN, or name</p>
+          </header>
+          <main className="flex-1 p-6 max-w-7xl mx-auto w-full">
+            <div className="mb-6">
+              <SearchBar searchTerm={searchTerm} setSearchTerm={setSearchTerm} handleSearch={handleSearch} />
+            </div>
+            <div className="mb-6">
+              <Filters filters={filters} setFilters={setFilters} />
+            </div>
+            {loading ? (
+              <div className="text-center">
+                <p className="text-gray-600">Loading...</p>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {results.length > 0 ? (
+                  results.map((result, index) => <ResultCard key={index} result={result} />)
+                ) : (
+                  <p className="text-gray-600 col-span-full text-center">
+                    No results found. Try adjusting your search or filters.
+                  </p>
+                )}
+              </div>
+            )}
+          </main>
+          <footer className="bg-gray-800 text-white p-4 text-center">
+            <p>&copy; 2025 Australian Business Registry. All rights reserved.</p>
+          </footer>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
